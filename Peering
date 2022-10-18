@@ -1,0 +1,201 @@
+--peering
+DROP TABLE IF EXISTS peering;
+CREATE TABLE peering
+(
+    peering_id integer PRIMARY KEY
+    ,customer varchar(128) NOT NULL
+    ,service varchar(128) NOT NULL
+    ,status varchar(128) NOT NULL
+    ,region varchar(128)
+    ,city varchar(128)
+    ,dot varchar(128)
+    ,bringing varchar(128)
+    ,number_ports numeric
+    ,port NUMERIC
+    ,calc_method varchar(128)
+    ,speed_by_form numeric
+    ,speed_by_loading numeric
+    ,discount numeric
+    ,port_payment numeric
+    ,speed_payment numeric
+    ,date_start date NOT NULL
+);
+
+
+
+--Обновление данных из CSV файла
+DELETE FROM peering;
+COPY peering
+FROM 'd:\SQL_CSV\peering.csv' DELIMITER ';' CSV HEADER;
+
+
+
+
+--peering_stat 
+DROP VIEW IF EXISTS peering_stat;
+CREATE OR REPLACE VIEW peering_stat AS    
+WITH
+    order_up AS                                 --->CTE 1 sorting by ascending date
+        (
+        SELECT      
+            row_number() over(ORDER BY customer ,service ,region ,city ,dot ,date_start) num_up
+            ,peering_id  
+            ,customer 
+            ,service 
+            ,region 
+            ,city 
+            ,dot
+            ,date_start 
+        FROM peering
+        )
+   ,peer_closed AS                              --->CTE 2 closed points
+       (
+        SELECT      
+            customer 
+            ,service
+            ,region 
+            ,city 
+            ,dot 
+            ,date_start 
+            ,'end' condition
+        FROM peering
+        WHERE status IN ('closing')
+        )
+    ,peering_union AS                           --->CTE 3 union of all CTEs (1, 2)
+        (
+        SELECT 
+            order_up.num_up
+            ,order_up.peering_id  
+            ,order_up.customer 
+            ,order_up.service 
+            ,order_up.region 
+            ,order_up.city 
+            ,order_up.dot
+            ,order_up.date_start 
+            ,ou.date_start - 1 AS date_end
+            ,COALESCE (pc.condition, 'open') condition 
+        FROM order_up
+        LEFT JOIN order_up AS ou
+            ON order_up.customer = ou.customer 
+            AND order_up.service = ou.service 
+            AND order_up.region = ou.region
+            AND order_up.city = ou.city
+            AND order_up.dot = ou.dot
+            AND order_up.num_up = (ou.num_up - 1)
+        LEFT JOIN peer_closed AS pc
+            ON order_up.customer = pc.customer 
+            AND order_up.service = pc.service 
+            AND order_up.region = pc.region
+            AND order_up.city = pc.city
+            AND order_up.dot = pc.dot
+            AND order_up.date_start <= pc.date_start
+        )
+   ,peering_union_period AS                     --->CTE 4 adding to CTE 3 columns with periods
+       (
+       SELECT 
+       peering_union.peering_id
+       ,period.first_day
+       FROM peering_union
+       LEFT JOIN period()
+           ON peering_union.date_start <= period.last_day
+           AND (peering_union.date_end >= period.first_day
+               OR peering_union.date_end IS NULL)
+       )
+   ,peering_union_stat AS                     --->CTE 5 periods added to CTE 4
+        (
+        SELECT
+            pup.first_day
+            ,peering.peering_id 
+            ,peering.customer
+            ,peering.service
+            ,peering.region 
+            ,peering.city 
+            ,peering.dot 
+            ,peering.date_start
+            ,pu.date_end 
+            ,pu.condition
+        FROM peering
+        LEFT JOIN peering_union_period AS pup
+            ON peering.peering_id = pup.peering_id 
+        LEFT JOIN peering_union AS pu 
+            ON peering.peering_id = pu.peering_id 
+        )
+   ,peering_order_last AS                     --->CTE 6 column last per month added to CTE 5
+        (
+    SELECT 
+        first_day
+        ,peering_id 
+        ,customer
+        ,service
+        ,region 
+        ,city 
+        ,dot 
+        ,date_start 
+        ,date_end 
+        ,condition
+        ,CASE WHEN nth = 1 THEN 'last' ELSE NULL END last_in_month
+    FROM (SELECT 
+            first_day
+            ,peering_id 
+            ,customer
+            ,service
+            ,region 
+            ,city 
+            ,dot 
+            ,date_start 
+            ,date_end 
+            ,condition
+            ,rank() OVER (PARTITION BY customer, service, region, city, dot, first_day ORDER BY date_start DESC) AS nth
+        FROM peering_union_stat) AS rank_down
+        )
+SELECT
+    pol.first_day
+    ,peering.customer
+    ,peering.service
+    ,peering.status 
+    ,peering.region 
+    ,peering.city 
+    ,peering.dot 
+    ,peering.bringing
+    ,peering.number_ports
+    ,peering.port
+    ,COALESCE(peering.calc_method, '') calc_method
+    ,CASE WHEN peering.speed_by_form IS NULL THEN peering.speed_by_loading        --->combined two columns with speeds
+        ELSE peering.speed_by_form 
+        END speed_report
+    ,COALESCE(peering.discount, 0) AS discount
+    ,COALESCE(peering.port_payment, 0) AS port_payment
+    ,peering.speed_payment
+    ,COALESCE(peering.port_payment, 0) + peering.speed_payment AS total_payment
+    ,peering.date_start
+    ,pol.date_end 
+    ,pol.condition
+    ,pol.last_in_month
+FROM peering
+LEFT JOIN peering_order_last AS pol
+    ON peering.peering_id = pol.peering_id 
+    AND peering.date_start = pol.date_start 
+WHERE peering.status NOT IN ('closing')
+GROUP BY
+    pol.first_day
+    ,peering.customer
+    ,peering.service
+    ,peering.status 
+    ,peering.region 
+    ,peering.city 
+    ,peering.dot 
+    ,peering.bringing
+    ,peering.number_ports
+    ,peering.port
+    ,COALESCE(peering.calc_method, '')
+    ,CASE WHEN peering.speed_by_form IS NULL THEN peering.speed_by_loading
+        ELSE peering.speed_by_form 
+        END
+    ,COALESCE(peering.discount, 0)
+    ,COALESCE(peering.port_payment, 0)
+    ,peering.speed_payment
+    ,COALESCE(peering.port_payment, 0) + peering.speed_payment
+    ,peering.date_start
+    ,pol.date_end 
+    ,pol.condition
+    ,pol.last_in_month
