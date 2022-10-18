@@ -1,0 +1,86 @@
+--Создаём столбец с датой последнего изменения
+--Добавление столбца
+ALTER TABLE sms 
+ADD COLUMN last_updated timestamp;
+
+--Содание функции текущей даты
+CREATE OR REPLACE FUNCTION track_changes() RETURNS TRIGGER AS $$
+BEGIN 
+	NEW.last_updated = now(); 
+	RETURN NEW;
+END
+$$ LANGUAGE plpgsql;
+
+--Привязка функции к созданному столбцу
+DROP TRIGGER IF EXISTS sms_timestamp ON sms;
+CREATE TRIGGER sms_timestamp BEFORE INSERT OR UPDATE ON sms 
+	FOR EACH ROW EXECUTE PROCEDURE track_changes();
+	
+	
+--Создаём столбец с именем того, кто изменил
+ALTER TABLE sms 
+ADD COLUMN user_changed text;
+
+CREATE OR REPLACE FUNCTION track_changes_employees() RETURNS TRIGGER AS $$
+BEGIN 
+	NEW.user_changed = SESSION_USER; 
+	RETURN NEW;
+END
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS employees_user_change ON sms;
+CREATE TRIGGER employees_user_change BEFORE INSERT OR UPDATE ON sms 
+	FOR EACH ROW EXECUTE PROCEDURE track_changes_employees();
+	
+	
+
+
+
+--Создаём триггеры для истории изменений
+--орератор
+--создаём таблицу истории
+DROP TABLE IF EXISTS operator_audit;
+
+CREATE TABLE operator_audit
+(
+	op char(1) NOT NULL,
+	user_changed TEXT NOT NULL,
+	time_stamp timestamp NOT NULL,
+	operator_id integer NOT NULL,
+	operator varchar(128),
+	affiliation varchar(128),
+	service varchar(128)
+);
+
+--создаём функцию запуска триггеров
+CREATE OR REPLACE FUNCTION build_audit_operator() RETURNS TRIGGER AS $$
+BEGIN 
+	IF TG_OP = 'INSERT' THEN 
+		INSERT INTO operator_audit
+		SELECT 'I', SESSION_USER, now(), nt.* FROM new_table nt;
+	ELSIF TG_OP = 'UPDATE' THEN
+		INSERT INTO operator_audit
+		SELECT 'U', SESSION_USER, now(), nt.* FROM new_table nt;
+	ELSIF TG_OP = 'DELETE' THEN
+		INSERT INTO operator_audit
+		SELECT 'D', SESSION_USER, now(), ot.* FROM old_table ot;
+	END IF;
+	RETURN NULL;
+END
+$$ LANGUAGE plpgsql;
+
+--создаём триггеры
+DROP TRIGGER IF EXISTS audit_operator_insert ON operator;
+CREATE TRIGGER audit_operator_insert AFTER INSERT ON operator
+REFERENCING NEW TABLE AS new_table 
+FOR EACH STATEMENT EXECUTE PROCEDURE build_audit_operator();
+
+DROP TRIGGER IF EXISTS audit_operator_update ON operator;
+CREATE TRIGGER audit_operator_update AFTER UPDATE ON operator
+REFERENCING NEW TABLE AS new_table 
+FOR EACH STATEMENT EXECUTE PROCEDURE build_audit_operator();
+
+DROP TRIGGER IF EXISTS audit_operator_delete ON operator;
+CREATE TRIGGER audit_operator_delete AFTER DELETE ON operator
+REFERENCING OLD TABLE AS old_table 
+FOR EACH STATEMENT EXECUTE PROCEDURE build_audit_operator();
