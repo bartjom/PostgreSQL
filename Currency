@@ -1,0 +1,16 @@
+--currency
+DROP TABLE IF EXISTS currency;
+CREATE TABLE currency
+(
+    date_id integer PRIMARY KEY
+    ,date date NOT NULL
+    ,eur_usd numeric NOT NULL
+    ,usd numeric NOT NULL
+    ,eur numeric NOT NULL
+);
+
+
+--Обновление данных из CSV файла
+DELETE FROM currency;
+COPY currency
+FROM 'd:\SQL_CSV\currency.csv' DELIMITER ';' CSV HEADER;
