@@ -1,0 +1,80 @@
+--Вставка данных
+INSERT INTO telephone
+VALUES
+(1, '01-11-2013',NULL,NULL,'Beltelecom','International','VRTelecom',NULL,'2695764',NULL,NULL,NULL,NULL,NULL,NULL),
+
+
+--Вставка из файла (кодировка UTF 8)
+COPY telephone
+FROM 'd:\SQL_CSV\telephone_2021.csv' DELIMITER ';' CSV HEADER
+
+--Выгрузка в файл (CSV)
+COPY (SELECT * FROM traffic_tel) TO 'd:/traffic.csv' CSV;
+
+
+--Удаление всех данных
+DELETE FROM telephone 
+
+
+--Обновление части данных
+    DELETE FROM telephone
+    WHERE date >= '01.12.2021';
+        COPY telephone
+        FROM 'd:\SQL_CSV\telephone_2021.12.csv' DELIMITER ';' CSV HEADER;
+    
+    DELETE FROM telephone_from_country
+    WHERE date >= '01.12.2021';
+        COPY telephone_from_country
+        FROM 'd:\SQL_CSV\telephone_from_country_2021.12.csv' DELIMITER ';' CSV HEADER;
+    
+    DELETE FROM sms
+    WHERE date >= '01.11.2021';
+        COPY sms
+        FROM 'd:\SQL_CSV\sms_2021.11.csv' DELIMITER ';' CSV HEADER;
+    
+    DELETE FROM sms_alfa
+    WHERE date >= '01.11.2021';
+        COPY sms_alfa
+        FROM 'd:\SQL_CSV\sms_alfa_2021.11.csv' DELIMITER ';' CSV HEADER
+
+
+
+UPDATE telephone_bc
+SET country = 'Ukraine'
+WHERE telephone_bc_id='2864';
+
+
+
+
+
+--Обновление телефонии и смс за весь период существования
+--telephone
+DELETE FROM telephone;
+COPY telephone
+FROM 'd:\SQL_CSV\telephone_2017.csv' DELIMITER ',' CSV HEADER;
+COPY telephone
+FROM 'd:\SQL_CSV\telephone_2018.csv' DELIMITER ',' CSV HEADER;
+COPY telephone
+FROM 'd:\SQL_CSV\telephone_2019.csv' DELIMITER ',' CSV HEADER;
+COPY telephone
+FROM 'd:\SQL_CSV\telephone_2020.csv' DELIMITER ',' CSV HEADER;
+COPY telephone
+FROM 'd:\SQL_CSV\telephone_2021.csv' DELIMITER ',' CSV HEADER;
+COPY telephone
+FROM 'd:\SQL_CSV\telephone_2022.csv' DELIMITER ',' CSV HEADER;
+       
+       
+--telephone from destination
+DELETE FROM telephone_from_country;
+COPY telephone_from_country
+FROM 'd:\SQL_CSV\telephone_from_country_2018.csv' DELIMITER ',' CSV HEADER;
+COPY telephone_from_country
+FROM 'd:\SQL_CSV\telephone_from_country_2019.csv' DELIMITER ',' CSV HEADER;
+COPY telephone_from_country
+FROM 'd:\SQL_CSV\telephone_from_country_2020.csv' DELIMITER ',' CSV HEADER;
+COPY telephone_from_country
+FROM 'd:\SQL_CSV\telephone_from_country_2021.csv' DELIMITER ',' CSV HEADER;
+COPY telephone_from_country
+FROM 'd:\SQL_CSV\telephone_from_country_2022.csv' DELIMITER ',' CSV HEADER;
+
+
