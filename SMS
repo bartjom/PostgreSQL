@@ -1,0 +1,147 @@
+--sms
+CREATE TABLE sms
+(
+    sms_id integer PRIMARY KEY,
+    date date NOT NULL,
+    client varchar(128) NOT NULL,
+    client_product varchar(128),
+    vendor varchar(128) NOT NULL,
+    vendor_product varchar(128),
+    billable_с numeric NOT NULL,
+    billable_v numeric NOT NULL,
+    revenue numeric NOT NULL,
+    cost numeric NOT NULL,
+    margin numeric NOT NULL,
+    revenue_avg numeric,
+    cost_avg numeric
+);
+
+
+--sms_alfa
+CREATE TABLE sms_alfa
+(
+    sms_alfa_id integer PRIMARY KEY,
+    date date NOT NULL,
+    client varchar(128),
+    vendor varchar(128),
+    a_number varchar(128) NOT NULL,
+    attempts numeric NOT NULL,
+    billable numeric NOT NULL,
+    delivered numeric NOT NULL
+);
+
+
+Views
+
+--traffic_sms
+DROP VIEW IF EXISTS traffic_sms;
+CREATE OR REPLACE VIEW traffic_sms AS
+SELECT sms.date
+    ,sms.client
+    ,sms.vendor
+    ,CASE WHEN cp.product IN ('Technical') 
+    		OR vp.product IN ('Technical') 
+    		OR client IN ('Верин и Ко', 'Святохо и Го')
+    		THEN 'Test' 
+    		ELSE cp.product 
+    	END AS product
+    ,sender.affiliation
+    ,sms.billable_v
+    ,sms.revenue
+    ,sms.cost
+    ,sms.margin 
+FROM sms
+LEFT JOIN operator AS sender 
+    ON sender.operator = sms.client
+LEFT JOIN operator AS recipient
+    ON recipient.operator = sms.vendor
+LEFT JOIN product AS cp
+    ON cp.client_vendor_product = sms.client_product
+LEFT JOIN product AS vp
+    ON vp.client_vendor_product = sms.vendor_product
+
+
+
+SMS-2
+--sms(2)
+--sms(2)
+CREATE TABLE sms_2
+(
+    sms_id integer PRIMARY KEY
+    ,date date NOT NULL
+    ,client varchar(128) NOT NULL
+    ,client_product varchar(128)
+    ,vendor varchar(128) NOT NULL
+    ,vendor_product varchar(128)
+    ,billable_с numeric NOT NULL
+    ,billable_v numeric NOT NULL
+    ,revenue numeric NOT NULL
+    ,revenue_avg float
+	,revenue_currency char(3)
+    ,cost numeric NOT NULL
+    ,cost_avg float
+    ,cost_currency char(3)
+);
+
+
+DELETE FROM sms_2;
+COPY sms_2
+FROM 'd:\SQL_CSV\sms_2022(2).csv' DELIMITER ',' CSV HEADER;
+
+
+--traffic_sms_2 revenue_currency 
+DROP VIEW IF EXISTS traffic_sms_2;
+CREATE OR REPLACE VIEW traffic_sms_2 AS
+WITH currency_exchange AS 				--->CTE join currncy table
+	(
+	SELECT 
+		sms_id
+	    ,CASE WHEN sms_2.revenue_currency IN ('BYN') THEN sms_2.revenue/cur.eur
+		    WHEN sms_2.revenue_currency IN ('USD') THEN sms_2.revenue/cur.eur_usd 
+		    ELSE sms_2.revenue END AS revenue_eur
+	    ,CASE WHEN sms_2.cost_currency IN ('BYN') THEN sms_2.cost/cur.eur
+		    WHEN sms_2.cost_currency IN ('USD') THEN sms_2.cost/cur.eur_usd 
+		    ELSE sms_2.cost END AS cost_eur
+	FROM sms_2 
+	JOIN currency cur
+		ON cur.date = date_trunc('month', sms_2.date)
+	)
+SELECT sms_2.date
+    ,sms_2.client
+    ,sms_2.vendor
+    ,CASE WHEN cp.product IN ('Technical') 
+    		OR vp.product IN ('Technical') 
+    		OR client IN ('Верин и Ко', 'Святохо и Го')
+    		THEN 'Test' 
+    		ELSE cp.product 
+    	END AS product
+    ,sender.affiliation
+    ,sms_2.billable_с
+    ,sms_2.billable_v
+--here is the money in the currency of settlement with the partner
+    ,sms_2.revenue
+    ,CASE WHEN sms_2.billable_с = '0' THEN 0 else sms_2.revenue/sms_2.billable_с END AS revenue_avg
+    ,sms_2.revenue_currency
+    ,sms_2.cost
+    ,CASE WHEN sms_2.billable_v = '0' THEN 0 else sms_2.cost/sms_2.billable_v END AS cost_avg
+    ,sms_2.cost_currency
+--here the money is in euro
+    ,ce.revenue_eur
+    ,CASE WHEN sms_2.billable_с = '0' THEN 0 else ce.revenue_eur/sms_2.billable_с END AS revenue_avg_eur
+	,'EUR' AS revenue_currency_eur
+    ,ce.cost_eur
+    ,CASE WHEN sms_2.billable_v = '0' THEN 0 else ce.cost_eur/sms_2.billable_v END AS cost_avg_eur
+	,'EUR' AS cost_currency_eur
+    ,ce.revenue_eur - ce.cost_eur AS margin 
+    ,(CASE WHEN sms_2.billable_с = '0' THEN 0 else ce.revenue_eur/sms_2.billable_с END - CASE WHEN sms_2.billable_v = '0' THEN 0 else ce.cost_eur/sms_2.billable_v END) AS margin_avg_eur
+FROM sms_2
+LEFT JOIN operator AS sender 
+    ON sender.operator = sms_2.client
+LEFT JOIN operator AS recipient
+    ON recipient.operator = sms_2.vendor
+LEFT JOIN product AS cp
+    ON cp.client_vendor_product = sms_2.client_product
+LEFT JOIN product AS vp
+    ON vp.client_vendor_product = sms_2.vendor_product
+LEFT JOIN currency_exchange AS ce
+    ON ce.sms_id = sms_2.sms_id
