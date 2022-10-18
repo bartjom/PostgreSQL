@@ -1,0 +1,431 @@
+--telephone
+CREATE TABLE telephone
+(
+	telephone_id integer PRIMARY KEY,
+	date date NOT NULL,
+	country varchar(128) NOT NULL,
+	destination varchar(128) NOT NULL,
+	client varchar(128) NOT NULL,
+	client_product varchar(128) NOT NULL,
+	vendor varchar(128) NOT NULL,
+	vendor_product varchar(128),
+	volume numeric NOT NULL,
+	revenue_min numeric,
+	total_revenue numeric,
+	cost_min numeric,
+	total_cost numeric,
+	margin_min numeric,
+	total_margin numeric
+);
+
+--telephone_from_country
+CREATE TABLE telephone_from_country
+(
+    telephone_from_country_id integer PRIMARY KEY,
+    date date NOT NULL,
+    operator varchar(128),
+    calling_destination varchar(128),
+    volume numeric NOT NULL
+);
+
+
+
+Views
+
+--traffic_tel
+DROP VIEW IF EXISTS traffic_tel;
+CREATE OR REPLACE VIEW traffic_tel AS
+    SELECT telephone.date
+        ,telephone.country
+        ,destination.destination_short AS destination
+        ,destination.network
+        ,COALESCE(direction.direction, 'technical') AS direction
+        ,telephone.client
+        ,telephone.vendor
+        ,product.product
+        ,telephone.volume
+        ,CASE WHEN telephone.client_product LIKE 'Russia (Roaming RUS)%'                ---> +$0,015 в Роуминг исход, так как биллинг теряет их (такса состоит из BYN и USD)
+            THEN telephone.revenue_min + 0.015
+            ELSE telephone.revenue_min 
+            END AS revenue_min
+        ,CASE WHEN telephone.client_product LIKE 'Russia (Roaming RUS)%' 
+            THEN telephone.total_revenue + 0.015 * telephone.volume 
+            ELSE telephone.total_revenue 
+            END AS total_revenue
+        ,telephone.cost_min
+        ,telephone.total_cost
+        ,CASE WHEN telephone.client_product LIKE 'Russia (Roaming RUS)%' 
+            THEN (telephone.revenue_min + 0.015) - telephone.cost_min
+            ELSE telephone.margin_min
+            END AS margin_min
+        ,CASE WHEN telephone.client_product LIKE 'Russia (Roaming RUS)%' 
+            THEN (telephone.total_revenue + 0.015 * telephone.volume) - telephone.total_cost
+            ELSE telephone.total_margin
+            END AS total_margin
+        ,CASE WHEN direction = 'outgoing' THEN vendor
+            WHEN direction = 'incoming' THEN client
+            WHEN direction = 'transit' THEN client
+            ELSE 'unknown'
+            END AS company
+    FROM telephone
+    INNER JOIN operator AS sender 
+        ON sender.operator = telephone.client
+    INNER JOIN operator AS recipient
+        ON recipient.operator = telephone.vendor
+    INNER JOIN product
+        ON product.client_product = telephone.client_product
+    FULL JOIN direction 
+        ON direction.client_affiliation = sender.affiliation
+        AND direction.vendor_affiliation = recipient.affiliation
+    INNER JOIN destination
+        ON destination.destination = telephone.destination;
+
+
+
+--traffic_polina
+DROP VIEW IF EXISTS traffic_polina;
+CREATE OR REPLACE VIEW traffic_polina AS
+SELECT  
+    date, 
+    company, 
+    country, 
+    client,
+    vendor,
+    direction, 
+    product, 
+    volume,
+    CASE 
+        WHEN direction = 'incoming' AND vendor = 'Beltelecom' 
+            THEN 'Beltelecom'
+        WHEN direction = 'incoming' 
+            THEN 'Mobile'
+        WHEN direction = 'outgoing' 
+            THEN client
+        ELSE 'unknown'
+    END  AS company2
+FROM traffic_tel
+WHERE date >= '01.01.2021'
+
+
+
+--revenue_min_zero (вход исход транзит выборка нулевых такс и по доходу и расходу)
+DROP VIEW IF EXISTS revenue_min_zero;
+CREATE OR REPLACE VIEW revenue_min_zero AS		---> на самом деле выборка происходит и по доходу и по расходу
+    SELECT 
+    	date
+    	,direction
+    	,country
+    	,destination
+    	,client
+    	,vendor
+    	,volume
+    	,revenue_min
+    	,cost_min 
+    FROM traffic_tel
+    WHERE 
+	    date >= current_date-180				--->tracking for the last 180 days
+	    AND direction IN ('incoming', 'outgoing', 'transit')
+	    AND (revenue_min = 0 OR cost_min = 0)
+	    AND vendor NOT IN ('Business Network')
+	ORDER BY
+		date
+    	,direction
+    	,country
+    	,destination
+    	,client
+    	,vendor;
+
+--transit_tariff
+DROP VIEW IF EXISTS transit_tariff;
+CREATE OR REPLACE VIEW transit_tariff AS 
+    SELECT date, country, destination, client, vendor, volume, total_revenue, total_cost, total_revenue-total_cost 
+    FROM traffic_tel
+    WHERE date >= '01-01-2021' AND direction in ('transit');
+
+
+--calculate the expected data   
+-- first variant
+DROP VIEW IF EXISTS expected_per_month;
+CREATE OR REPLACE VIEW expected_per_month AS
+    SELECT 
+        tt.direction 
+        ,tt.country
+        ,tt.network 
+        ,tt.destination 
+        ,SUM(volume) traffic_in_fact_month
+        ,SUM
+            (
+                CASE 
+                    WHEN tt.date >= current_date-7
+                        THEN (volume/7)*(SELECT EXTRACT(DAY FROM date_trunc('month', current_date + interval '1 month') - current_date))
+                    ELSE 0
+                END 
+            ) expected_traffic_remaining_days
+        ,SUM(volume) +
+        SUM
+            (
+                CASE 
+                    WHEN tt.date >= current_date-7
+                        THEN (volume/7)*(SELECT EXTRACT(DAY FROM date_trunc('month', current_date + interval '1 month') - current_date))
+                    ELSE 0
+                END 
+            ) expected_traffic_per_month
+    FROM traffic_tel tt
+    WHERE date_trunc('month', tt."date") = date_trunc('month', current_date) 
+        AND tt.product NOT IN ('Roaming RUS')
+    GROUP BY tt.direction
+            ,tt.country
+            ,tt.network 
+            ,tt.destination;
+
+
+-- second variant
+DROP VIEW IF EXISTS expected_per_month2;
+CREATE OR REPLACE VIEW expected_per_month2 AS
+    WITH last_days_sum AS 
+        (
+        SELECT 
+            tt.country 
+            ,tt.destination 
+            ,(SUM(volume)/7)*(SELECT EXTRACT(DAY FROM date_trunc('month', current_date + interval '1 month') - current_date)) expected_traffic_remaining_days              
+        FROM traffic_tel tt
+        WHERE tt.date >= current_date-7
+        GROUP BY tt.country 
+            ,tt.destination 
+        )
+    SELECT 
+        tt.direction
+        ,tt.country 
+        ,tt.network 
+        ,tt.destination 
+        ,SUM(volume) traffic_in_fact_month
+        ,AVG(last_tt.expected_traffic_remaining_days) expected_traffic_remaining_days  
+        ,SUM(volume) + AVG(last_tt.expected_traffic_remaining_days) expected_traffic_per_month
+    FROM traffic_tel tt
+        LEFT JOIN  last_days_sum last_tt
+            ON tt.country  = last_tt.country
+                AND tt.destination = last_tt.destination
+    WHERE date_trunc('month', tt."date") = date_trunc('month', current_date)
+    GROUP BY tt.direction
+            ,tt.country 
+            ,tt.network 
+            ,tt.destination;
+
+
+
+
+
+--business_case
+DROP VIEW IF EXISTS business_case;
+CREATE OR REPLACE VIEW business_case AS       
+WITH 
+        fact AS (                       -------> первая CTE выбираем все факты  
+            SELECT 
+                DATE_TRUNC('month', date) AS date
+            	,company
+               	,direction
+                ,CASE WHEN direction NOT IN ('outgoing') THEN client ELSE '-' END           client
+                ,CASE WHEN direction NOT IN ('incoming') THEN vendor ELSE '-' END           vendor
+                ,country
+                ,destination
+                ,CASE WHEN direction NOT IN ('transit') THEN sum(volume) ELSE NULL END       fact_vol
+                ,CASE WHEN direction IN ('transit') THEN sum(total_revenue) ELSE NULL END    fact_rev
+            FROM traffic_tel
+            WHERE direction IN ('outgoing', 'incoming', 'transit')
+            GROUP BY    
+            	date
+                ,company
+                ,direction
+                ,client
+                ,vendor 
+                ,country
+                ,destination
+        )
+    
+        ,plan AS (                      -------> вторая CTE выбираем все сделки 
+             SELECT 
+                date
+             	,company
+                ,direction
+                ,client
+                ,vendor 
+                ,country
+                ,destination
+                ,volume_bc          plan_vol
+                ,total_revenue_bc   plan_rev
+            FROM telephone_bc
+        )
+    
+        ,fact_to_plan AS (                      -------> третья CTE связываем первые две CTE факт и план
+        SELECT 
+        	fact.date
+            ,COALESCE(COALESCE(plan_for_dest.company, plan_for_other_dest.company), plan_for_other_country.company)         		company
+            ,fact.direction
+            ,fact.client
+            ,fact.vendor
+            ,COALESCE(COALESCE(COALESCE(plan_for_dest.country, plan_for_other_dest.country), plan_for_dest.country), '-')         	country
+            ,COALESCE(COALESCE(plan_for_dest.destination, plan_for_other_dest.destination), plan_for_other_country.destination)   	destination
+            ,AVG(COALESCE(COALESCE(plan_for_dest.plan_vol, plan_for_other_dest.plan_vol), plan_for_other_country.plan_vol))       	plan_vol
+            ,ROUND(SUM(fact.fact_vol), 0)                                                                                         	fact_vol
+            ,AVG(COALESCE(COALESCE(plan_for_dest.plan_rev, plan_for_other_dest.plan_rev), plan_for_other_country.plan_rev))       	plan_rev
+            ,ROUND(SUM(fact.fact_rev), 0)                                                                                         	fact_rev
+        FROM fact 
+        LEFT JOIN plan      plan_for_dest                       -- mapped ROWS WHERE destination match
+            ON fact.direction = plan_for_dest.direction 
+            AND 
+                CASE WHEN fact.direction='outgoing' THEN fact.vendor = plan_for_dest.vendor
+                     WHEN fact.direction='incoming' THEN fact.client = plan_for_dest.client
+                     ELSE fact.vendor = plan_for_dest.vendor
+                        AND fact.client = plan_for_dest.client
+                END 
+            AND fact.country = plan_for_dest.country
+            AND fact.destination = plan_for_dest.destination
+            AND fact.date = plan_for_dest.date
+        LEFT JOIN plan      plan_for_other_dest                      -- mapped ROWS WHERE destination does NOT match
+            ON fact.direction = plan_for_other_dest.direction 
+            AND 
+                CASE WHEN fact.direction='outgoing' THEN fact.vendor = plan_for_other_dest.vendor
+                     WHEN fact.direction='incoming' THEN fact.client = plan_for_other_dest.client
+                     ELSE fact.vendor = plan_for_other_dest.vendor
+                        AND fact.client = plan_for_other_dest.client
+                END 
+            AND fact.country = plan_for_other_dest.country
+            AND plan_for_other_dest.destination = '-'
+            AND fact.date = plan_for_other_dest.date
+        LEFT JOIN plan      plan_for_other_country                      -- mapped ROWS WHERE country does NOT match
+            ON fact.direction = plan_for_other_country.direction
+            AND 
+                CASE WHEN fact.direction='outgoing' THEN fact.vendor = plan_for_other_country.vendor
+                     WHEN fact.direction='incoming' THEN fact.client = plan_for_other_country.client
+                     ELSE fact.vendor = plan_for_other_country.vendor
+                        AND fact.client = plan_for_other_country.client
+                END  
+            AND plan_for_other_country.country = '-'
+            AND fact.date = plan_for_other_country.date
+            AND plan_for_other_dest.country IS NULL               -----> means that previous JOIN has NO RESULT
+            GROUP BY 
+            fact.date
+            ,COALESCE(COALESCE(plan_for_dest.company, plan_for_other_dest.company), plan_for_other_country.company)
+            ,fact.direction
+            ,fact.client
+            ,fact.vendor
+            ,COALESCE(COALESCE(COALESCE(plan_for_dest.country, plan_for_other_dest.country), plan_for_dest.country), '-')
+            ,COALESCE(COALESCE(plan_for_dest.destination, plan_for_other_dest.destination), plan_for_other_country.destination)
+        )
+        SELECT 
+        fact_to_plan.date
+        ,fact_to_plan.company
+        ,fact_to_plan.direction 
+        ,fact_to_plan.client 
+        ,fact_to_plan.vendor 
+        ,fact_to_plan.country 
+        ,fact_to_plan.destination 
+        ,fact_to_plan.plan_vol
+        ,fact_to_plan.fact_vol
+        ,fact_to_plan.fact_vol - fact_to_plan.plan_vol          difference_vol
+        ,fact_to_plan.plan_rev
+        ,fact_to_plan.fact_rev
+        ,fact_to_plan.fact_rev - fact_to_plan.plan_rev          difference_rev
+            FROM fact_to_plan
+            FULL JOIN plan 
+             ON  fact_to_plan.direction     = plan.direction
+             AND fact_to_plan.country       = plan.country
+             AND fact_to_plan.client        = plan.client
+             AND fact_to_plan.vendor        = plan.vendor
+             AND fact_to_plan.company       = plan.company
+             AND fact_to_plan.destination   = plan.destination
+             AND fact_to_plan.date   = plan.date
+    WHERE fact_to_plan.company IS NOT NULL 
+
+
+
+--Поиск всплесков трафика
+--Average daily phone traffic load
+DROP VIEW IF EXISTS traffic_tel_vol_avg;
+CREATE OR REPLACE VIEW traffic_tel_vol_avg AS
+WITH
+date_x AS					---->LAST day
+	(SELECT date
+	FROM traffic_tel
+	ORDER BY date DESC 
+	LIMIT 1)
+,traffic_32 AS				---->SELECT traffic FOR avg
+	(SELECT country
+			,network 
+			,destination
+			,product 
+			,date
+			,RANK() over(PARTITION BY country ,network ,destination ,product ORDER BY sum(volume) DESC) nth		---->rank in descending order
+			,sum(volume) vol
+		FROM traffic_tel
+		WHERE 
+			direction IN ('outgoing')
+			AND product NOT IN ('National')
+			AND date > (SELECT date FROM date_x)-(7*4+4)		---->select the last 32 days (4 weeks + 4 days which we will discard later)
+		GROUP BY 
+			country
+			,network
+			,destination
+			,product
+			,date)
+SELECT country 
+		,network 
+		,destination 
+		,product
+		,round(sum(vol)/28, 2) volume_avg			---->calculate average traffic
+FROM traffic_32
+WHERE nth > 4					---->remove 4 maximums from the average daily traffic calculation
+GROUP BY country 
+		,network 
+		,destination 
+		,product;
+
+
+
+--Search for splash of traffic versus average daily load
+DROP VIEW IF EXISTS traffic_tel_vol_splash;
+CREATE OR REPLACE VIEW traffic_tel_vol_splash AS
+WITH
+date_x AS					---->last day
+	(SELECT date
+	FROM traffic_tel
+	ORDER BY date DESC 
+	LIMIT 1)
+,traffic_70 AS				---->choosing traffic for the last 70 days
+	(SELECT country
+		,network
+		,destination
+		,product 
+		,date
+		,sum(volume) volume
+	FROM traffic_tel
+	WHERE 
+		direction IN ('outgoing')
+		AND product NOT IN ('National')
+		AND date > (SELECT date FROM date_x)-70		---->choosing traffic for the last 70 days
+	GROUP BY 
+		country
+		,network
+		,destination
+		,product 
+		,date)
+SELECT t7.country
+	,t7.network
+	,t7.destination
+	,t7.product
+	,t7.date
+	,round(t7.volume) volume_big
+	,round(ta.volume_avg) volume_avg
+FROM traffic_70 t7
+LEFT JOIN traffic_tel_vol_avg ta
+	ON t7.country = ta.country
+	AND t7.network = ta.network
+	AND t7.destination = ta.destination
+	AND t7.product = ta.product
+WHERE t7.volume > 100
+	AND t7.volume > ta.volume_avg * CASE WHEN ta.volume_avg > 1000 THEN 1.5		---->select the exceeded data depending on the volume
+										WHEN ta.volume_avg > 500 THEN 2
+										WHEN ta.volume_avg > 200 THEN 2.5
+										WHEN ta.volume_avg > 100 THEN 3
+										ELSE 4
+									END;
