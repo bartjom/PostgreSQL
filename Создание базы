@@ -1,0 +1,85 @@
+--Создание базы
+CREATE DATABASE telephone
+
+
+--operator
+CREATE TABLE operator
+(
+    operator_id integer PRIMARY KEY,
+    operator varchar(128),
+    affiliation varchar(128),
+    service varchar(128)
+);
+
+--country
+CREATE TABLE country
+(
+	country_id integer PRIMARY KEY,
+	country varchar(128)
+);
+
+--destination
+CREATE TABLE destination
+(
+	destination_id integer PRIMARY KEY,
+	destination varchar(128),
+	destination_short varchar(128),
+	country varchar(128),
+	network varchar(10)
+);
+
+--product
+CREATE TABLE product
+(
+	client_product_id integer PRIMARY KEY,
+	client_product varchar(128) NOT NULL,
+	product varchar(128) NOT NULL,
+	service varchar(128) NOT NULL
+);
+
+--direction
+CREATE TABLE direction
+(
+	direction_id integer PRIMARY KEY,
+	direction varchar(128),
+	client_product varchar(128),
+	vendor_product varchar(128)
+);
+
+--date
+CREATE TABLE date
+(
+	date_id integer PRIMARY KEY,
+	date date,
+	year smallint,
+	month smallint,
+	month2 varchar(10),
+	day smallint,
+	week smallint,
+	week2 varchar(12)
+);
+
+--Бизнес-кейс
+CREATE TABLE telephone_bc
+(
+    telephone_bc_id integer PRIMARY KEY, 
+    date date NOT NULL,
+    direction varchar(128) NOT NULL,
+    operator varchar(128) NOT NULL,
+    client varchar(128),
+    vendor varchar(128),
+    country varchar(128) NOT NULL,
+    destination_short varchar(128),
+    volume_bc numeric,
+    total_revenue_bc numeric
+);
+
+
+--Добавление столбца
+ALTER TABLE destination
+ADD COLUMN network varchar(10);
+
+--Дублирование таблицы для эксперимента
+SELECT *
+INTO experiment
+FROM telephone;
