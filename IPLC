@@ -1,0 +1,156 @@
+--iplc
+DROP TABLE IF EXISTS iplc;
+CREATE TABLE iplc
+(
+    iplc_id integer PRIMARY KEY
+    ,"order" integer NOT NULL
+    ,order_line integer NOT NULL
+    ,customer varchar(128) NOT NULL
+    ,status varchar(128) NOT NULL
+    ,performer varchar(128) NOT NULL
+    ,consumer varchar(128) NOT NULL
+    ,consumer_address varchar(128)
+    ,order_form varchar(128)
+    ,id_vlan varchar(128)
+    ,term_initial numeric
+    ,term_extension numeric
+    ,term_notice_end numeric
+    ,capacity NUMERIC
+    ,payment_instal numeric
+    ,payment_monthly numeric
+    ,currency varchar(4)
+    ,date_start date NOT NULL
+    ,comment varchar(128)
+);
+
+
+--обновление данных из CSV файла
+DELETE FROM iplc;
+COPY iplc
+FROM 'd:\SQL_CSV\iplc.csv' DELIMITER ';' CSV HEADER;
+
+
+--iplc_stat
+DROP VIEW IF EXISTS iplc_stat;
+CREATE OR REPLACE VIEW iplc_stat AS 
+WITH 
+    iplc_date_end AS                                --->CTE adding a column with date_end order form
+        (
+        SELECT 
+            i.iplc_id 
+            ,i."order"
+            ,i.date_start 
+            ,i_end.date_start - 1 AS date_end
+        FROM iplc AS i
+        LEFT JOIN iplc AS i_end                     --->join with next line
+            ON i.order = i_end.order
+            AND i.iplc_id = (i_end.iplc_id - 1)
+        )
+    ,iplc_stat AS                                   --->CTE adding a column with periods
+        (
+        SELECT 
+            ide.iplc_id  
+            ,period.first_day
+            ,ide."order"
+            ,ide.date_start
+            ,ide.date_end
+        FROM iplc_date_end AS ide
+        LEFT JOIN period()
+            ON ide.date_start <= period.last_day
+            AND (ide.date_end >= period.first_day
+                OR ide.date_end IS NULL)
+        )
+    ,iplc_order_last AS                             --->CTE column last per month
+        (
+        SELECT 
+            iplc_id
+            ,first_day
+            ,"order"
+            ,date_start 
+            ,date_end 
+            ,CASE WHEN nth = 1 THEN 'last' ELSE '-' END last_in_month
+        FROM (SELECT 
+                iplc_id
+                ,first_day
+                ,"order"
+                ,date_start 
+                ,date_end 
+                ,rank() OVER (PARTITION BY "order", first_day ORDER BY date_start DESC) AS nth
+            FROM iplc_stat) AS rank_down
+        )
+    ,iplc_closed AS                                     --->CTE closed deals
+        (
+        SELECT 
+            "order"
+            ,'end' condition
+        FROM iplc
+        WHERE status IN ('closing')
+        ORDER BY "order"
+        )
+SELECT 
+    i.iplc_id
+    ,i."order"
+    ,i.order_line
+    ,i_s.first_day                          ---> column with period
+    ,i.customer
+    ,CASE WHEN i.customer IN ('НЦОТ','ГлобалВанБел', 'Молодечненский ЖЗБИ', 'ОИПИ НАН', 'Связь-Инфо Лимитед') THEN 'national' ELSE 'international' END AS affiliation
+    ,CASE WHEN i.customer IN ('НЦОТ') THEN 'import' ELSE 'export' END AS imp_exp
+    ,i.status
+    ,i.performer
+    ,i.consumer
+    ,i.consumer_address
+    ,i.order_form
+    ,iol.last_in_month                          ---> add colomn with last in month
+    ,i.id_vlan
+    ,i.term_initial
+    ,i.term_extension
+    ,i.term_notice_end
+    ,CASE WHEN (i.date_start + i.term_initial * interval '1 month') > current_date THEN '+' ELSE '-' END AS relevance_first_term
+    ,avg(i.capacity) capacity
+    ,avg(i.payment_instal) AS payment_instal            --->инстал прописывается в каждом месяце
+    ,CASE WHEN i_s.first_day = date_trunc('month', i.date_start) THEN i.payment_instal ELSE NULL END AS payment_instal_2 --->инстал прописывается только в первом месяце
+    ,avg(i.payment_monthly) AS payment_monthly
+    ,i.currency
+    ,round(avg(i.payment_instal) / (CASE WHEN i.currency IN ('$') THEN cur.eur_usd WHEN i.currency IN ('BYN') THEN cur.eur ELSE 1 END), 0) AS payment_instal_€   --->convert into euro. Инстал прописывается в каждом месяце
+    ,round((CASE WHEN i_s.first_day = date_trunc('month', i.date_start) THEN i.payment_instal ELSE NULL END) / 
+        (CASE WHEN i.currency IN ('$') THEN cur.eur_usd WHEN i.currency IN ('BYN') THEN cur.eur ELSE 1 END), 0) AS payment_instal_€_2   --->convert into euro. Инстал прописывается только в первом месяце
+    ,round(avg(i.payment_monthly) / (CASE WHEN i.currency IN ('$') THEN cur.eur_usd WHEN i.currency IN ('BYN') THEN cur.eur ELSE 1 END), 0) AS payment_monthly_€   --->convert into euro
+    ,'€' common_currency
+    ,i.date_start
+    ,i_s.date_end
+    ,COALESCE (ic.condition, 'open') AS condition                 --->deal relevance (open/end)
+    ,i.comment
+FROM iplc AS i 
+LEFT JOIN iplc_stat AS i_s
+    ON i.iplc_id = i_s.iplc_id
+LEFT JOIN iplc_order_last AS iol
+    ON i.iplc_id = iol.iplc_id
+LEFT JOIN iplc_closed AS ic
+    ON i.order = ic.ORDER
+LEFT JOIN currency AS cur
+    ON i_s.first_day = cur.date
+WHERE i.status NOT IN ('closing')
+GROUP BY 
+    i.iplc_id
+    ,i."order"
+    ,i.order_line
+    ,i_s.first_day
+    ,i.customer
+    ,CASE WHEN i.customer IN ('НЦОТ','ГлобалВанБел', 'Молодечненский ЖЗБИ', 'ОИПИ НАН', 'Связь-Инфо Лимитед') THEN 'national' ELSE 'international' END
+    ,CASE WHEN i.customer IN ('НЦОТ') THEN 'import' ELSE 'export' END
+    ,i.status
+    ,i.performer
+    ,i.consumer
+    ,i.consumer_address
+    ,i.order_form
+    ,iol.last_in_month
+    ,i.id_vlan
+    ,i.term_initial
+    ,i.term_extension
+    ,i.term_notice_end
+    ,CASE WHEN (i.date_start + i.term_initial * interval '1 month') > current_date THEN '+' ELSE '-' END
+    ,i.currency
+    ,cur.eur_usd 
+    ,cur.eur 
+    ,i_s.date_end
+    ,COALESCE (ic.condition, 'open')
