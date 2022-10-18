@@ -1,0 +1,173 @@
+--btc_ntec
+DROP TABLE IF EXISTS telephone_btc_ntec;
+CREATE TABLE telephone_btc_ntec
+(
+    btc_ntec_id integer PRIMARY KEY
+    ,date date NOT NULL
+    ,in_btc numeric (5,4)
+    ,in_notroum_btc numeric (5,4)
+    ,in_roum_btc numeric (5,4)
+    ,in_ntec numeric (5,4)
+    ,in_notroum_ntec numeric (5,4)
+    ,in_roum_ntec numeric (5,4)
+    ,out_btc numeric (5,4)
+    ,out_notroum_btc numeric (5,4)
+    ,out_roum_btc numeric (5,4)
+    ,out_ntec numeric (5,4)
+    ,out_notroum_ntec numeric (5,4)
+    ,out_roum_ntec numeric (5,4)
+    ,in_bel numeric (5,4)
+    ,in_notroum_bel numeric (5,4)
+    ,in_roum_bel numeric (5,4)
+    ,out_bel numeric (5,4)
+    ,out_notroum_bel numeric (5,4)
+    ,out_roum_bel numeric (5,4)
+);
+
+
+
+Views
+
+--beltelecom_ntec
+DROP VIEW IF EXISTS tel_bel_base;
+CREATE OR REPLACE VIEW tel_bel_base AS 
+        SELECT date, 'beltelecom' "operator", 'incoming' direction, 'not rouming' roum_notroum, in_notroum_btc volume
+        FROM telephone_btc_ntec
+    UNION
+        SELECT date, 'ntec', 'incoming', 'not rouming', in_notroum_ntec
+        FROM telephone_btc_ntec
+    UNION
+        SELECT date, 'beltelecom', 'outgoing', 'not rouming', out_notroum_btc
+        FROM telephone_btc_ntec
+    UNION
+        SELECT date, 'ntec', 'outgoing', 'not rouming', out_notroum_ntec
+        FROM telephone_btc_ntec
+    UNION
+        SELECT date, 'beltelecom', 'incoming', 'rouming', in_roum_btc
+        FROM telephone_btc_ntec
+    UNION
+        SELECT date, 'ntec', 'incoming', 'rouming', in_roum_ntec
+        FROM telephone_btc_ntec
+    UNION
+        SELECT date, 'beltelecom', 'outgoing', 'rouming', out_roum_btc
+        FROM telephone_btc_ntec
+    UNION
+        SELECT date, 'ntec', 'outgoing', 'rouming', out_roum_ntec
+        FROM telephone_btc_ntec;
+
+
+
+
+DROP VIEW IF EXISTS tel_bel_m;
+CREATE OR REPLACE VIEW tel_bel_m AS
+    SELECT date_trunc('MONTH', tel_bel_base.date)
+        ,tel_bel_base.operator
+        ,tel_bel_base.direction
+        ,tel_bel_base.roum_notroum
+        ,sum(tel_bel_base.volume) vol    
+        ,sum(last_m.volume) vol_last_m
+        ,sum(last_y.volume) vol_last_y  
+       ,CASE 
+            WHEN 
+                sum(last_m.volume) = '0' 
+            THEN NULL
+            ELSE round(sum(tel_bel_base.volume)/sum(last_m.volume)*100, 1) 
+        END AS perc_last_m
+       ,CASE 
+            WHEN 
+                sum(last_y.volume) = '0' 
+            THEN NULL
+            ELSE round(sum(tel_bel_base.volume)/sum(last_y.volume)*100, 1) 
+        END AS perc_last_y   
+    FROM tel_bel_base
+    FULL JOIN tel_bel_base last_y
+            ON tel_bel_base.date = last_y.date + interval '1' YEAR
+            AND tel_bel_base.operator = last_y.operator
+            AND tel_bel_base.roum_notroum = last_y.roum_notroum
+            AND tel_bel_base.direction = last_y.direction
+    FULL JOIN tel_bel_base last_m 
+            ON tel_bel_base.date = last_m.date + interval '1' MONTH 
+            AND tel_bel_base.operator = last_m.operator
+            AND tel_bel_base.roum_notroum = last_m.roum_notroum
+            AND tel_bel_base.direction = last_m.direction
+    GROUP BY date_trunc('MONTH', tel_bel_base.date)
+            ,tel_bel_base.OPERATOR
+            ,tel_bel_base.direction
+            ,tel_bel_base.roum_notroum
+    ORDER BY date_trunc('MONTH', tel_bel_base.date) DESC 
+            ,tel_bel_base.direction
+            ,roum_notroum;
+
+
+ 
+        
+DROP VIEW IF EXISTS tel_bel_q;
+CREATE OR REPLACE VIEW tel_bel_q AS
+    SELECT date_trunc('QUARTER', tel_bel_base.date)
+        ,tel_bel_base.operator
+        ,tel_bel_base.direction
+        ,tel_bel_base.roum_notroum
+        ,sum(tel_bel_base.volume) vol    
+        ,sum(last_q.volume) vol_last_q
+        ,sum(last_y.volume) vol_last_y  
+       ,CASE 
+            WHEN 
+                sum(last_q.volume) = '0' 
+            THEN NULL
+            ELSE round(sum(tel_bel_base.volume)/sum(last_q.volume)*100, 1) 
+        END AS perc_last_q
+       ,CASE 
+            WHEN 
+                sum(last_y.volume) = '0' 
+            THEN NULL
+            ELSE round(sum(tel_bel_base.volume)/sum(last_y.volume)*100, 1) 
+        END AS perc_last_y   
+    FROM tel_bel_base
+    FULL JOIN tel_bel_base last_y
+            ON tel_bel_base.date = last_y.date + interval '1' YEAR
+            AND tel_bel_base.operator = last_y.operator
+            AND tel_bel_base.roum_notroum = last_y.roum_notroum
+            AND tel_bel_base.direction = last_y.direction
+    FULL JOIN tel_bel_base last_q 
+            ON tel_bel_base.date = last_q.date + interval '1' MONTH 
+            AND tel_bel_base.operator = last_q.operator
+            AND tel_bel_base.roum_notroum = last_q.roum_notroum
+            AND tel_bel_base.direction = last_q.direction
+    GROUP BY date_trunc('QUARTER', tel_bel_base.date)
+            ,tel_bel_base.OPERATOR
+            ,tel_bel_base.direction
+            ,tel_bel_base.roum_notroum
+    ORDER BY date_trunc('QUARTER', tel_bel_base.date) DESC 
+            ,tel_bel_base.direction
+            ,roum_notroum;
+        
+        
+        
+
+DROP VIEW IF EXISTS tel_bel_y;
+CREATE OR REPLACE VIEW tel_bel_y AS
+    SELECT date_trunc('YEAR', tel_bel_base.date)
+        ,tel_bel_base.operator
+        ,tel_bel_base.direction
+        ,tel_bel_base.roum_notroum
+        ,sum(tel_bel_base.volume) vol    
+        ,sum(last_y.volume) vol_last_y  
+        ,CASE 
+            WHEN 
+                sum(last_y.volume) = '0' 
+            THEN NULL
+            ELSE round(sum(tel_bel_base.volume)/sum(last_y.volume)*100, 1) 
+        END AS perc_last_y   
+    FROM tel_bel_base
+    FULL JOIN tel_bel_base last_y
+            ON tel_bel_base.date = last_y.date + interval '1' YEAR
+            AND tel_bel_base.operator = last_y.operator
+            AND tel_bel_base.roum_notroum = last_y.roum_notroum
+            AND tel_bel_base.direction = last_y.direction
+    GROUP BY date_trunc('YEAR', tel_bel_base.date)
+            ,tel_bel_base.OPERATOR
+            ,tel_bel_base.direction
+            ,tel_bel_base.roum_notroum
+    ORDER BY date_trunc('YEAR', tel_bel_base.date) DESC 
+            ,tel_bel_base.direction
+            ,roum_notroum;
