@@ -1,0 +1,187 @@
+--data update from table CSV
+CREATE OR REPLACE FUNCTION update_data() RETURNS void AS $$
+--telephone
+DELETE FROM telephone
+WHERE date >= '01.01.2022';
+COPY telephone
+FROM 'c:\SQL_CSV\telephone_2022.csv' DELIMITER ',' CSV HEADER;
+--telephone from destination
+DELETE FROM telephone_from_country
+WHERE date >= '01.01.2022';
+COPY telephone_from_country
+FROM 'c:\SQL_CSV\telephone_from_country_2022.csv' DELIMITER ',' CSV HEADER;
+--sms
+DELETE FROM sms;
+COPY sms
+FROM 'c:\SQL_CSV\sms.csv' DELIMITER ',' CSV HEADER;
+--sms alpha-name
+DELETE FROM sms_alfa
+WHERE date >= '01.01.2022';
+COPY sms_alfa
+FROM 'c:\SQL_CSV\sms_alfa_2022.csv' DELIMITER ',' CSV HEADER;
+--beltelecom and ntec
+DELETE FROM telephone_btc_ntec;
+COPY telephone_btc_ntec
+FROM 'c:\SQL_CSV\telephone_btc_ntec.csv' DELIMITER ',' CSV HEADER;
+--currency
+DELETE FROM currency;
+COPY currency
+FROM 'c:\SQL_CSV\currency.csv' DELIMITER ',' CSV HEADER;
+--telephone_bc
+DELETE FROM telephone_bc;
+COPY telephone_bc
+FROM 'c:\SQL_CSV\telephone_bc.csv' DELIMITER ',' CSV HEADER;
+--country
+DELETE FROM country;
+COPY country
+FROM 'c:\SQL_CSV\country.csv' DELIMITER ',' CSV HEADER;
+--destination
+DELETE FROM destination;
+COPY destination
+FROM 'c:\SQL_CSV\destination.csv' DELIMITER ',' CSV HEADER;
+--operator
+DELETE FROM operator;
+COPY operator
+FROM 'c:\SQL_CSV\operator.csv' DELIMITER ',' CSV HEADER;
+--product
+DELETE FROM product;
+COPY product
+FROM 'c:\SQL_CSV\product.csv' DELIMITER ',' CSV HEADER;
+--direction
+DELETE FROM direction;
+COPY direction
+FROM 'c:\SQL_CSV\direction.csv' DELIMITER ',' CSV HEADER;
+$$ language SQL;
+
+
+
+SELECT update_data();
+
+
+
+
+
+--search for new operators/directions/product
+DROP FUNCTION IF EXISTS new_position;
+CREATE OR REPLACE FUNCTION new_position() RETURNS TABLE (SECTION varchar, NEW varchar) AS $$ --search for new operators/directions
+    (
+    SELECT 'new_sms_client' AS section, client AS new                                  --->SMS new client
+    FROM sms
+    LEFT JOIN operator ON sms.client=operator.operator 
+    WHERE operator.operator IS NULL
+    GROUP BY client
+        UNION 
+    SELECT 'new_sms_vendor', vendor                                                     --->SMS new vendor
+    FROM sms
+    LEFT JOIN operator ON sms.vendor=operator.operator 
+    WHERE operator.operator IS NULL
+    GROUP BY vendor
+        UNION 
+    SELECT 'new_sms_product(client)', sms.client_product                                --->SMS new client_product
+    FROM sms
+    LEFT JOIN product ON sms.client_product=product.client_vendor_product 
+    WHERE product.client_vendor_product IS NULL
+    GROUP BY sms.client_product
+        UNION
+    SELECT 'new_sms_product(vendor)', sms.vendor_product                                --->SMS new vendor_product
+    FROM sms
+    LEFT JOIN product ON sms.vendor_product=product.client_vendor_product 
+    WHERE product.client_vendor_product IS NULL
+    AND sms.vendor_product IS NOT NULL              --->ignore null values
+    GROUP BY sms.vendor_product
+        UNION
+    SELECT 'new_telephone_client', client                                               --->Telephone new client
+    FROM telephone
+    LEFT JOIN operator ON telephone.client=operator.operator 
+    WHERE operator.operator IS NULL
+    GROUP BY client
+        UNION
+    SELECT 'new_telephone_vendor', vendor                                               --->Telephone new vendor
+    FROM telephone
+    LEFT JOIN operator ON telephone.vendor=operator.operator 
+    WHERE operator.operator IS NULL
+    GROUP BY vendor
+        UNION
+    SELECT 'new_telephone_product(client)', telephone.client_product              --->Telephone new client_product
+    FROM telephone
+    LEFT JOIN product ON telephone.client_product=product.client_vendor_product 
+    WHERE product.client_vendor_product IS NULL
+    GROUP BY telephone.client_product
+        UNION
+    SELECT 'new_telephone_product(vendor)', telephone.vendor_product              --->Telephone new vendor_product
+    FROM telephone
+    LEFT JOIN product ON telephone.vendor_product=product.client_vendor_product 
+    WHERE product.client_vendor_product IS NULL
+    GROUP BY telephone.vendor_product
+        UNION
+    SELECT 'new_telephone_destination', telephone.destination                           --->Telephone new destination
+    FROM telephone
+    LEFT JOIN destination ON telephone.destination=destination.destination
+    WHERE destination.destination IS NULL
+    GROUP BY telephone.destination
+    )
+    ORDER BY section
+$$ LANGUAGE SQL;
+
+
+SELECT * FROM new_position();
+
+
+
+
+--Last 28 day of data entry in traffic_tel
+DROP FUNCTION IF EXISTS last_first_date_traffic_tel;
+CREATE OR REPLACE FUNCTION last_first_date_traffic_tel() RETURNS TABLE (tag varchar, date date) AS $$
+    (
+        SELECT 
+            CASE 
+                WHEN first_last = '1' THEN 'last' 
+                WHEN first_last = '28' THEN 'first' 
+                ELSE '-' 
+            END    
+        ,date 
+        FROM 
+        (SELECT 
+            date
+            ,ROW_NUMBER() OVER(ORDER BY date DESC) AS first_last
+        FROM traffic_tel
+        WHERE date >= '01-01-2022'
+        GROUP BY date) AS first_last
+        WHERE first_last IN ('1', '28')
+    )
+$$ LANGUAGE SQL;
+
+
+
+SELECT date FROM last_first_date_traffic_tel()
+WHERE tag = 'last';
+
+
+SELECT date FROM last_first_date_traffic_tel()
+WHERE tag = 'first';
+
+
+
+
+
+
+--period
+DROP FUNCTION IF EXISTS period;
+CREATE OR REPLACE FUNCTION period() 
+        RETURNS TABLE(first_day date, last_day date, year smallint, month smallint, month2 varchar(10)) AS $$
+    SELECT 
+        DATE_TRUNC('month', date) first_day
+        ,DATE_TRUNC('month', date) + '1 MONTH'::INTERVAL - '1 DAY'::INTERVAL last_day
+        ,year
+        ,month
+        ,month2
+    FROM date
+    GROUP BY 
+        DATE_TRUNC('month', date)
+        ,DATE_TRUNC('month', date) + '1 MONTH'::INTERVAL - '1 DAY'::INTERVAL
+        ,year
+        ,month
+        ,month2
+    ORDER BY 
+        DATE_TRUNC('month', date)
+$$ LANGUAGE SQL;
