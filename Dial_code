@@ -1,0 +1,497 @@
+/*Create table*/
+CREATE TABLE dial_code
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar(128) NOT NULL 
+	,country varchar(128)
+	,area varchar(128)
+	,TYPE varchar(128)
+);
+
+CREATE TABLE dial_code_42com
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar(128) NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_brilliant
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar(128) NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_bti
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar(128) NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_ccs
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+DROP TABLE IF EXISTS dial_code_china_mobile;
+CREATE TABLE dial_code_china_mobile
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+DROP TABLE IF EXISTS dial_code_china_telecom;
+CREATE TABLE dial_code_china_telecom 
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_dtag
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar(128) NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_ezphone
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar(128) NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_garbo
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar(128) NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_interconnect
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar(128) NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_ip
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_lanck
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar(128) NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_lexico
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar(128) NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_mediafon
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar(128) NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_mtt
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar(128) NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_novametro
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_orange
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_rostelecom
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_sng
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar(128) NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+
+CREATE TABLE dial_code_speedflow
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar(128) NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_switchover
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar(128) NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_tag
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar(128) NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_tata
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_teleconnect
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_ttk
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+CREATE TABLE dial_code_viber
+(
+	dial_code_id integer PRIMARY KEY 
+	,dial_code varchar NOT NULL 
+	,destination varchar(128)
+	,tariff float
+);
+
+
+
+
+
+/*Update data*/
+DELETE FROM dial_code;
+COPY dial_code 
+FROM 'd:\SQL_CSV\dial_code.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_42com;
+COPY dial_code_42com 
+FROM 'd:\SQL_CSV\dial_code_42com.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_brilliant;
+COPY dial_code_brilliant 
+FROM 'd:\SQL_CSV\dial_code_brilliant.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_bti;
+COPY dial_code_bti 
+FROM 'd:\SQL_CSV\dial_code_bti.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_ccs;
+COPY dial_code_ccs
+FROM 'd:\SQL_CSV\dial_code_ccs.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_china_mobile;
+COPY dial_code_china_mobile 
+FROM 'd:\SQL_CSV\dial_code_china_mobile.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_china_telecom;
+COPY dial_code_china_telecom
+FROM 'd:\SQL_CSV\dial_code_china_telecom.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_dtag;
+COPY dial_code_dtag
+FROM 'd:\SQL_CSV\dial_code_dtag.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_ezphone;
+COPY dial_code_ezphone 
+FROM 'd:\SQL_CSV\dial_code_ezphone.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_garbo;
+COPY dial_code_garbo 
+FROM 'd:\SQL_CSV\dial_code_garbo.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_interconnect;
+COPY dial_code_interconnect 
+FROM 'd:\SQL_CSV\dial_code_interconnect.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_ip;
+COPY dial_code_ip 
+FROM 'd:\SQL_CSV\dial_code_ip.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_lanck;
+COPY dial_code_lanck
+FROM 'd:\SQL_CSV\dial_code_lanck.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_lexico;
+COPY dial_code_lexico 
+FROM 'd:\SQL_CSV\dial_code_lexico.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_mediafon;
+COPY dial_code_mediafon 
+FROM 'd:\SQL_CSV\dial_code_mediafon.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_mtt;
+COPY dial_code_mtt 
+FROM 'd:\SQL_CSV\dial_code_mtt.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_novametro;
+COPY dial_code_novametro 
+FROM 'd:\SQL_CSV\dial_code_novametro.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_orange;
+COPY dial_code_orange 
+FROM 'd:\SQL_CSV\dial_code_orange.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_rostelecom;
+COPY dial_code_rostelecom													--need to replace ";" on the ","
+FROM 'd:\SQL_CSV\dial_code_rostelecom.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_sng;
+COPY dial_code_sng  														--there is the word 'closed' in the tariffs beforehand remove them from the source
+FROM 'd:\SQL_CSV\dial_code_sng.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_speedflow;
+COPY dial_code_speedflow													--there is the word 'Blocked' in the tariffs beforehand remove them from the source
+FROM 'd:\SQL_CSV\dial_code_speedflow.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_switchover;
+COPY dial_code_switchover 
+FROM 'd:\SQL_CSV\dial_code_switchover.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_tag;
+COPY dial_code_tag 
+FROM 'd:\SQL_CSV\dial_code_tag.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_tata;
+COPY dial_code_tata  													--кода разделены по колонкам на код страны и код города (код города ещёи через запятую)
+FROM 'd:\SQL_CSV\dial_code_tata.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_teleconnect;
+COPY dial_code_teleconnect
+FROM 'd:\SQL_CSV\dial_code_teleconnect.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_ttk;
+COPY dial_code_ttk
+FROM 'd:\SQL_CSV\dial_code_ttk.csv' DELIMITER ',' CSV HEADER;
+
+DELETE FROM dial_code_viber;
+COPY dial_code_viber
+FROM 'd:\SQL_CSV\dial_code_viber.csv' DELIMITER ',' CSV HEADER;
+
+
+
+
+
+/*
+dial_code_42com				"42com"
+dial_code_brilliant			brilliant
+dial_code_bti				bti
+dial_code_ccs				ccs
+dial_code_china_mobile		china_mobile
+dial_code_china_telecom		china_telecom
+dial_code_dtag				dtag
+dial_code_ezphone			ezphone
+dial_code_garbo				garbo
+dial_code_interconnect		interconnect
+dial_code_ip				ip
+dial_code_lanck				lanck
+dial_code_lexico			lexico
+dial_code_mediafon			mediafon
+dial_code_mtt				mtt
+dial_code_novametro			novametro
+dial_code_orange			orange
+dial_code_rostelecom		rostelecom
+dial_code_sng				sng
+dial_code_speedflow			speedflow
+dial_code_switchover		switchover
+dial_code_tag				tag
+dial_code_tata				tata
+dial_code_teleconnect		teleconnect
+dial_code_ttk				ttk
+dial_code_viber				viber
+*/
+
+
+	
+	
+	
+/*VIEW. Combine the current price of partners together*/
+DROP VIEW IF EXISTS dial_code_union_source;
+CREATE OR REPLACE VIEW dial_code_union_source AS 
+WITH union_code AS ( 	
+	SELECT '42com' AS company, * FROM dial_code_42com
+	UNION
+	SELECT 'brilliant' AS company, * FROM dial_code_brilliant
+	UNION
+	SELECT 'bti' AS company, * FROM dial_code_bti
+	UNION
+	SELECT 'ccs' AS company, * FROM dial_code_ccs
+	UNION
+	SELECT 'china_mobile' AS company, * FROM dial_code_china_mobile
+	UNION
+	SELECT 'china_telecom' AS company, * FROM dial_code_china_telecom
+	UNION
+	SELECT 'dtag' AS company, * FROM dial_code_dtag
+	UNION
+	SELECT 'ezphone' AS company, * FROM dial_code_ezphone
+	UNION
+	SELECT 'garbo' AS company, * FROM dial_code_garbo
+	UNION
+	SELECT 'interconnect' AS company, * FROM dial_code_interconnect
+	UNION
+	SELECT 'ip' AS company, * FROM dial_code_ip
+	UNION
+	SELECT 'lanck' AS company, * FROM dial_code_lanck
+	UNION
+	SELECT 'lexico' AS company, * FROM dial_code_lexico
+	UNION
+	SELECT 'mediafon' AS company, * FROM dial_code_mediafon
+	UNION
+	SELECT 'mtt' AS company, * FROM dial_code_mtt
+	UNION
+	SELECT 'orange' AS company, * FROM dial_code_orange
+	UNION
+	SELECT 'rostelecom' AS company, * FROM dial_code_rostelecom
+	UNION
+	SELECT 'novametro' AS company, * FROM dial_code_novametro
+	UNION
+	SELECT 'sng' AS company, * FROM dial_code_sng
+	UNION
+	SELECT 'speedflow' AS company, * FROM dial_code_speedflow
+	UNION
+	SELECT 'switchover' AS company, * FROM dial_code_switchover
+	UNION
+	SELECT 'tag' AS company, * FROM dial_code_tag
+	UNION
+	SELECT 'tata' AS company, * FROM dial_code_tata
+	UNION
+	SELECT 'teleconnect' AS company, * FROM dial_code_teleconnect
+	UNION
+	SELECT 'ttk' AS company, * FROM dial_code_ttk
+	UNION
+	SELECT 'viber' AS company, * FROM dial_code_viber
+	)
+,val AS (	
+	SELECT
+		*
+		,UNNEST(STRING_TO_ARRAY(REPLACE(dial_code,' ',''),',')) val
+	FROM union_code
+)
+,val_from_range AS (
+	SELECT *
+	,SPLIT_PART(val, '-', 1)::bigint AS start_r
+	,CASE WHEN POSITION('-' IN val) > 0
+    	THEN SPLIT_PART(val, '-', 2)::bigint  
+    	ELSE NULL
+	END end_r
+FROM val
+)
+SELECT 
+	company
+	,destination
+	,GENERATE_SERIES(start_r,end_r, 1)::TEXT dial_code_split
+	,tariff
+FROM val_from_range
+WHERE end_r IS NOT NULL 
+UNION ALL
+SELECT 
+	company 
+	,destination
+	,val dial_code_split
+	,tariff
+FROM val_from_range
+WHERE end_r IS NULL;
+
+
+
+/*VIEW. Join VIEW dial_code_union_source to dial_code*/
+DROP VIEW IF EXISTS dial_code_tariff;
+CREATE OR REPLACE VIEW dial_code_tariff AS 
+SELECT 
+	dcus.company
+	,dial_code.dial_code
+	,dial_code.country
+	,dial_code.area 
+	,dcus.destination AS destination_company
+	,dcus.tariff
+FROM dial_code
+LEFT JOIN dial_code_union_source dcus
+ON dial_code.dial_code = dcus.dial_code_split;
+
+
+
+
+
+
+/*Check new dial_code*/
+DROP VIEW IF EXISTS dial_code_new;
+CREATE OR REPLACE VIEW dial_code_new AS 
+WITH missing_dial_code AS 
+(
+	SELECT dial_code_split
+	FROM dial_code_union_source
+	EXCEPT   
+	SELECT dial_code
+	FROM dial_code 
+)
+SELECT 
+	dcus.dial_code_split
+	,dcus.company
+	,dcus.destination
+FROM dial_code_union_source AS dcus
+JOIN missing_dial_code AS mdc
+	USING (dial_code_split)
